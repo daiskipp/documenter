@@ -316,13 +316,21 @@ export class DatabaseStorage implements IStorage {
       
       console.log("[DEBUG] Existing document:", existingDocument);
       
-      // Create a version entry if content is being updated
-      if (updateData.content !== undefined && existingDocument.content !== null) {
-        console.log("[DEBUG] Creating version with content:", existingDocument.content || "");
+      // コンテンツが変更される場合は必ず既存のコンテンツでバージョンを作成
+      if (updateData.content !== undefined && existingDocument.content) {
+        console.log("[DEBUG] Creating version with content length:", (existingDocument.content || "").length);
+        
+        // バージョンを作成（常に既存のコンテンツを保存）
         await this.createVersion({
           document_id: id,
-          content: existingDocument.content || ""
+          content: existingDocument.content
         });
+        
+        // バージョンを作成できたか確認
+        const versions = await this.getVersions(id);
+        console.log("[DEBUG] Versions after creation:", versions.length, "newest:", versions[0]?.id);
+      } else {
+        console.log("[DEBUG] Skipping version creation - no content change or null content");
       }
       
       // Make sure content is properly handled for null values
