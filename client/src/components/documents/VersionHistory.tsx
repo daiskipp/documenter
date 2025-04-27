@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, queryClient } from "@tanstack/react-query";
 import { Document, Version } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 interface VersionHistoryProps {
   open: boolean;
@@ -24,6 +34,8 @@ export default function VersionHistory({
 }: VersionHistoryProps) {
   const { toast } = useToast();
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
+  const [versionToDelete, setVersionToDelete] = useState<Version | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   // Fetch versions
   const { data, isLoading } = useQuery({

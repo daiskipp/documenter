@@ -215,6 +215,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create version" });
     }
   });
+  
+  // バージョン削除エンドポイント
+  app.delete("/api/versions/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid version ID" });
+    }
+    
+    try {
+      // まずはバージョンが存在するか確認
+      const version = await storage.getVersion(id);
+      if (!version) {
+        return res.status(404).json({ message: "Version not found" });
+      }
+      
+      // バージョンを削除
+      const deleted = await storage.deleteVersion(id);
+      if (!deleted) {
+        return res.status(500).json({ message: "Failed to delete version" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting version:", error);
+      res.status(500).json({ message: "Failed to delete version", error: String(error) });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

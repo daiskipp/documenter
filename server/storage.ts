@@ -30,6 +30,7 @@ export interface IStorage {
   getVersions(documentId: number): Promise<Version[]>;
   getVersion(id: number): Promise<Version | undefined>;
   createVersion(version: InsertVersion): Promise<Version>;
+  deleteVersion(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -198,6 +199,10 @@ export class MemStorage implements IStorage {
     };
     this.versions.set(id, version);
     return version;
+  }
+
+  async deleteVersion(id: number): Promise<boolean> {
+    return this.versions.delete(id);
   }
 }
 
@@ -385,6 +390,12 @@ export class DatabaseStorage implements IStorage {
       created_at: now
     }).returning();
     return version;
+  }
+  
+  async deleteVersion(id: number): Promise<boolean> {
+    // バージョンを削除し、削除されたバージョンの数を確認
+    const deleted = await db.delete(versions).where(eq(versions.id, id)).returning();
+    return deleted.length > 0;
   }
 }
 
