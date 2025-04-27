@@ -1,4 +1,14 @@
 import { cn } from "@/lib/utils";
+import { useEffect, useRef } from "react";
+
+// グローバル変数の型定義
+declare global {
+  interface Window {
+    // markedとmermaidはindex.htmlで読み込まれる
+    marked: any;
+    mermaid: any;
+  }
+}
 
 interface MarkdownRendererProps {
   content: string;
@@ -9,16 +19,55 @@ export function MarkdownRenderer({
   content,
   className
 }: MarkdownRendererProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    // Mermaidを初期化
+    if (window.mermaid) {
+      try {
+        window.mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+          fontFamily: 'Inter, sans-serif'
+        });
+      } catch (e) {
+        console.error("Mermaid initialization error:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // レンダリング後にMermaidダイアグラムを処理
+    if (containerRef.current && window.mermaid) {
+      try {
+        window.mermaid.init(undefined, containerRef.current.querySelectorAll('.mermaid'));
+      } catch (e) {
+        console.error("Mermaid rendering error:", e);
+      }
+    }
+  }, [content]);
+
   let html = '';
   
-  // Use the marked library to render markdown
+  // Markedを使用してマークダウンをHTMLに変換
   try {
-    // In a real app, we would use a library like 'marked' or 'react-markdown'
-    // For simplicity, we'll import the library from CDN in the index.html
-    if (typeof marked !== 'undefined') {
-      html = marked.parse(content);
+    if (window.marked) {
+      // カスタムレンダラーを作成してMermaidコードブロックを処理
+      const renderer = new window.marked.Renderer();
+      const originalCodeRenderer = renderer.code.bind(renderer);
+      
+      // コードブロックのレンダリングをカスタマイズ
+      renderer.code = function(code: string, language: string) {
+        if (language === 'mermaid') {
+          return `<div class="mermaid">${code}</div>`;
+        }
+        return originalCodeRenderer(code, language);
+      };
+      
+      html = window.marked.parse(content, { renderer });
     } else {
-      // Fallback if the library isn't loaded
+      console.warn('marked library not loaded');
       html = content;
     }
   } catch (error) {
@@ -28,17 +77,12 @@ export function MarkdownRenderer({
   
   return (
     <div 
+      ref={containerRef}
       className={cn("prose prose-sm md:prose-base dark:prose-invert max-w-none break-words markdown-body", className)}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }
-
-// Add the marked library
-const script = document.createElement('script');
-script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-script.async = true;
-document.head.appendChild(script);
 
 // Add markdown styles
 const style = document.createElement('style');
@@ -60,5 +104,6 @@ style.textContent = `
   .markdown-body td { @apply border border-gray-300 px-3 py-1; }
   .markdown-body img { @apply max-w-full; }
   .markdown-body hr { @apply my-4 border-t border-gray-300; }
+  .markdown-body .mermaid { @apply my-4 overflow-auto; }
 `;
 document.head.appendChild(style);
