@@ -132,7 +132,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      console.log("[DEBUG] Document update request body:", req.body);
       const validatedData = insertDocumentSchema.partial().parse(req.body);
+      console.log("[DEBUG] Validated data:", validatedData);
+      
       const document = await storage.updateDocument(id, validatedData);
       
       if (!document) {
@@ -140,11 +143,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json({ document });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("[ERROR] Document update failed:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid document data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to update document" });
+      res.status(500).json({ message: "Failed to update document", error: error.message || String(error) });
     }
   });
 

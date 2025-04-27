@@ -303,31 +303,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDocument(id: number, updateData: Partial<InsertDocument>): Promise<Document | undefined> {
-    // First get the current document to create a version
-    const [existingDocument] = await db.select().from(documents).where(eq(documents.id, id));
-    
-    if (!existingDocument) {
-      return undefined;
+    try {
+      console.log("[DEBUG] Storage: updateDocument called with id:", id, "updateData:", updateData);
+      
+      // First get the current document to create a version
+      const [existingDocument] = await db.select().from(documents).where(eq(documents.id, id));
+      
+      if (!existingDocument) {
+        console.log("[DEBUG] Document not found with id:", id);
+        return undefined;
+      }
+      
+      console.log("[DEBUG] Existing document:", existingDocument);
+      
+      // Create a version entry if content is being updated
+      if (updateData.content !== undefined && existingDocument.content !== null) {
+        console.log("[DEBUG] Creating version with content:", existingDocument.content || "");
+        await this.createVersion({
+          document_id: id,
+          content: existingDocument.content || ""
+        });
+      }
+      
+      // Make sure content is properly handled for null values
+      const contentToUpdate = updateData.content === undefined ? 
+        undefined : 
+        (updateData.content === null ? null : updateData.content);
+      
+      // Update the document with fixed content handling
+      const [updatedDocument] = await db.update(documents)
+        .set({
+          ...updateData,
+          content: contentToUpdate,
+          updated_at: new Date()
+        })
+        .where(eq(documents.id, id))
+        .returning();
+      
+      console.log("[DEBUG] Updated document:", updatedDocument);
+      return updatedDocument;
+    } catch (error) {
+      console.error("[ERROR] Failed to update document:", error);
+      throw error;
     }
-    
-    // Create a version entry if content is being updated
-    if (updateData.content !== undefined && existingDocument.content !== null) {
-      await this.createVersion({
-        document_id: id,
-        content: existingDocument.content || ""
-      });
-    }
-    
-    // Update the document
-    const [updatedDocument] = await db.update(documents)
-      .set({
-        ...updateData,
-        updated_at: new Date()
-      })
-      .where(eq(documents.id, id))
-      .returning();
-    
-    return updatedDocument;
   }
 
   async deleteDocument(id: number): Promise<boolean> {
