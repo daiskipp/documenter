@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw, Trash2, GitCompare, FileText } from "lucide-react";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DiffView from "./DiffView";
 
 interface VersionHistoryProps {
   open: boolean;
@@ -36,9 +38,10 @@ export default function VersionHistory({
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
   const [versionToDelete, setVersionToDelete] = useState<Version | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'content' | 'diff'>('content');
 
   // Fetch versions
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ versions: Version[] }>({
     queryKey: [`/api/documents/${document.id}/versions`],
     enabled: open,
   });
@@ -229,8 +232,28 @@ export default function VersionHistory({
             <div className="col-span-8 pl-4 overflow-y-auto">
               {selectedVersion ? (
                 <>
-                  {document.content !== selectedVersion.content && (
-                    <div className="mb-4 flex justify-end">
+                  <div className="mb-4 flex justify-between items-center">
+                    {/* 表示モード切り替えタブ */}
+                    <Tabs 
+                      defaultValue="content" 
+                      value={viewMode} 
+                      onValueChange={(value) => setViewMode(value as 'content' | 'diff')}
+                      className="w-[300px]"
+                    >
+                      <TabsList>
+                        <TabsTrigger value="content" className="flex items-center">
+                          <FileText className="h-4 w-4 mr-1" />
+                          コンテンツ
+                        </TabsTrigger>
+                        <TabsTrigger value="diff" className="flex items-center">
+                          <GitCompare className="h-4 w-4 mr-1" />
+                          変更差分
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+
+                    {/* 復元ボタン - 現在のコンテンツと異なる場合のみ表示 */}
+                    {document.content !== selectedVersion.content && (
                       <Button 
                         onClick={handleRestore}
                         disabled={restoreVersionMutation.isPending}
@@ -241,9 +264,19 @@ export default function VersionHistory({
                           {restoreVersionMutation.isPending ? "復元中..." : "このバージョンを復元"}
                         </span>
                       </Button>
-                    </div>
+                    )}
+                  </div>
+
+                  {/* コンテンツ表示 or 差分表示 */}
+                  {viewMode === 'content' ? (
+                    <MarkdownRenderer content={selectedVersion.content} />
+                  ) : (
+                    <DiffView 
+                      oldText={document.content || ''}
+                      newText={selectedVersion.content || ''}
+                      splitView={true}
+                    />
                   )}
-                  <MarkdownRenderer content={selectedVersion.content} />
                 </>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">

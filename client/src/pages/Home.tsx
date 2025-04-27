@@ -36,14 +36,14 @@ export default function Home() {
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
 
   // Queries
-  const { data: projectsData, isLoading: isLoadingProjects } = useQuery({
+  const { data: projectsData, isLoading: isLoadingProjects } = useQuery<{ projects: Project[] }>({
     queryKey: ['/api/projects'],
   });
   
   const projects = projectsData?.projects || [];
 
   // Documents query is dependent on selected project
-  const { data: documentsData, isLoading: isLoadingDocuments } = useQuery({
+  const { data: documentsData, isLoading: isLoadingDocuments } = useQuery<{ documents: Document[] }>({
     queryKey: [`/api/projects/${currentProject?.id || 0}/documents`],
     enabled: !!currentProject,
   });
