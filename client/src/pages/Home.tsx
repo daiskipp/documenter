@@ -12,7 +12,8 @@ import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal";
 import VersionHistory from "@/components/documents/VersionHistory";
 import { useToast } from "@/hooks/use-toast";
 import { Project, Document } from "@shared/schema";
-import { FileText } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const isMobile = useMobile();
@@ -43,7 +44,7 @@ export default function Home() {
 
   // Documents query is dependent on selected project
   const { data: documentsData, isLoading: isLoadingDocuments } = useQuery({
-    queryKey: currentProject ? [`/api/projects/${currentProject.id}/documents`] : null,
+    queryKey: [`/api/projects/${currentProject?.id || 0}/documents`],
     enabled: !!currentProject,
   });
   
@@ -169,20 +170,28 @@ export default function Home() {
     <div className="bg-gray-50 min-h-screen flex flex-col">
       <Header 
         sidebarOpen={sidebarOpen} 
-        setSidebarOpen={setSidebarOpen} 
+        setSidebarOpen={setSidebarOpen}
+        projects={projects}
+        currentProject={currentProject}
+        isLoading={isLoadingProjects}
+        onSelectProject={handleSelectProject}
+        onCreateProject={() => setShowCreateProjectModal(true)}
+        onProjectAction={handleProjectActions}
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <ProjectSidebar 
-          projects={projects}
-          currentProject={currentProject}
-          isLoading={isLoadingProjects}
-          sidebarOpen={sidebarOpen || !isMobile} 
-          onSelectProject={handleSelectProject}
-          onCreateProject={() => setShowCreateProjectModal(true)}
-          onProjectAction={handleProjectActions}
-        />
+        {/* Sidebar - モバイル版のみ表示 */}
+        {isMobile && (
+          <ProjectSidebar 
+            projects={projects}
+            currentProject={currentProject}
+            isLoading={isLoadingProjects}
+            sidebarOpen={sidebarOpen} 
+            onSelectProject={handleSelectProject}
+            onCreateProject={() => setShowCreateProjectModal(true)}
+            onProjectAction={handleProjectActions}
+          />
+        )}
 
         {/* Main content area */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
@@ -259,16 +268,14 @@ export default function Home() {
                 <>
                   <FileText className="h-20 w-20 mb-6 text-primary-300" />
                   <h2 className="text-xl font-medium text-gray-900 mb-2">ドキュメント管理アプリへようこそ</h2>
-                  <p className="mb-4 text-center max-w-md">左側のサイドバーからプロジェクトを選択するか、プラスボタンをクリックして新しいプロジェクトを作成してください。</p>
-                  <button 
+                  <p className="mb-4 text-center max-w-md">画面上部のドロップダウンメニューからプロジェクトを選択するか、「新規プロジェクト」ボタンをクリックして新しいプロジェクトを作成してください。</p>
+                  <Button 
                     onClick={() => setShowCreateProjectModal(true)}
-                    className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 flex items-center"
+                    className="px-4 py-2 flex items-center"
                   >
-                    <svg className="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
+                    <Plus className="h-5 w-5 mr-2" />
                     <span>新しいプロジェクトを作成</span>
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
