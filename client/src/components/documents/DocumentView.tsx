@@ -20,6 +20,9 @@ export default function DocumentView({
   const isMobile = useMobile();
   const [editMode, setEditMode] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  
+  // デバッグ用に情報をコンソールに出力
+  console.log("DocumentView: document=", document);
 
   if (editMode) {
     return (
@@ -37,21 +40,24 @@ export default function DocumentView({
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white p-4">
+    <div className="flex-1 flex flex-col overflow-hidden bg-white p-4 relative z-10">
       {/* Document actions */}
       <div className="mb-4 flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-900">{document.title}</h1>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 z-20">
           <Button
             onClick={onShowVersionHistory}
-            className="px-3 py-1.5 bg-[#8b5cf6] text-white rounded-md hover:bg-opacity-90 text-sm flex items-center"
+            className="px-3 py-1.5 bg-[#8b5cf6] text-white rounded-md hover:bg-opacity-90 text-sm flex items-center cursor-pointer"
           >
             <Clock className="h-4 w-4 mr-1" />
             <span>履歴</span>
           </Button>
           <Button
-            onClick={() => setEditMode(true)}
-            className="px-3 py-1.5 bg-primary-500 text-white rounded-md hover:bg-primary-600 text-sm flex items-center"
+            onClick={() => {
+              console.log("Edit button clicked");
+              setEditMode(true);
+            }}
+            className="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm flex items-center cursor-pointer"
           >
             <Edit className="h-4 w-4 mr-1" />
             <span>編集</span>
