@@ -22,10 +22,16 @@ export function MarkdownRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    // Mermaidを初期化
-    if (window.mermaid) {
+    // コンポーネントがマウントされたときにMermaidを初期化
+    console.log("MarkdownRenderer: Component mounted, mermaid available:", !!window.mermaid);
+    
+    // window.mermaidがないときはグローバルからアクセス
+    const mermaidLib = window.mermaid || (window as any).mermaid;
+    
+    if (mermaidLib) {
       try {
-        window.mermaid.initialize({
+        // 念のため再初期化
+        mermaidLib.initialize({
           startOnLoad: false,
           theme: 'default',
           securityLevel: 'loose',
@@ -34,18 +40,50 @@ export function MarkdownRenderer({
       } catch (e) {
         console.error("Mermaid initialization error:", e);
       }
+    } else {
+      console.warn("Mermaid library not found!");
     }
   }, []);
 
   useEffect(() => {
     // レンダリング後にMermaidダイアグラムを処理
-    if (containerRef.current && window.mermaid) {
-      try {
-        window.mermaid.init(undefined, containerRef.current.querySelectorAll('.mermaid'));
-      } catch (e) {
-        console.error("Mermaid rendering error:", e);
+    // 少し遅延させてDOM要素が確実に存在するようにする
+    const timeout = setTimeout(() => {
+      if (containerRef.current) {
+        const mermaidElements = containerRef.current.querySelectorAll('.mermaid');
+        console.log("Found mermaid elements:", mermaidElements.length);
+        
+        if (mermaidElements.length > 0 && window.mermaid) {
+          try {
+            // mermaidが初期化されていることを確認
+            window.mermaid.contentLoaded();
+            
+            // 明示的に各要素を処理
+            mermaidElements.forEach((element, index) => {
+              console.log(`Processing mermaid element ${index}:`, element.textContent?.substring(0, 50) + '...');
+              try {
+                // 既にレンダリングされていたら何もしない
+                if (element.querySelector('svg')) return;
+                
+                // 直接レンダリング
+                window.mermaid.render(`mermaid-${Date.now()}-${index}`, element.textContent || '', 
+                  (svg: string) => {
+                    element.innerHTML = svg;
+                  },
+                  element
+                );
+              } catch (err) {
+                console.error(`Error rendering mermaid diagram ${index}:`, err);
+              }
+            });
+          } catch (e) {
+            console.error("Mermaid rendering error:", e);
+          }
+        }
       }
-    }
+    }, 100);
+    
+    return () => clearTimeout(timeout);
   }, [content]);
 
   let html = '';
@@ -53,6 +91,8 @@ export function MarkdownRenderer({
   // Markedを使用してマークダウンをHTMLに変換
   try {
     if (window.marked) {
+      console.log("Using marked to parse markdown");
+      
       // カスタムレンダラーを作成してMermaidコードブロックを処理
       const renderer = new window.marked.Renderer();
       const originalCodeRenderer = renderer.code.bind(renderer);
@@ -60,14 +100,21 @@ export function MarkdownRenderer({
       // コードブロックのレンダリングをカスタマイズ
       renderer.code = function(code: string, language: string) {
         if (language === 'mermaid') {
-          return `<div class="mermaid">${code}</div>`;
+          console.log("Found mermaid code block:", code.substring(0, 50) + '...');
+          return `<pre class="mermaid">${code}</pre>`;
         }
         return originalCodeRenderer(code, language);
       };
       
-      html = window.marked.parse(content, { renderer });
+      const options = { 
+        renderer, 
+        gfm: true,
+        breaks: true
+      };
+      
+      html = window.marked.parse(content, options);
     } else {
-      console.warn('marked library not loaded');
+      console.error('marked library not loaded');
       html = content;
     }
   } catch (error) {

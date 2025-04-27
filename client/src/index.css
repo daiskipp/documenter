@@ -57,3 +57,28 @@
   }
 }
 
+/* Mermaid スタイル */
+.mermaid {
+  display: block;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+pre.mermaid {
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+}
+
+/* コンテンツがロード完了したタイミングでmermaidを初期化するscript */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mermaid svg {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
