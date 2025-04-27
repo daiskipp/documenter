@@ -69,33 +69,76 @@ export default function DocumentView({
     try {
       setIsExporting(true);
       
+      // コンテンツをキャプチャする前に、mermaidダイアグラムの要素を見つけて処理
+      const mermaidElements = contentRef.current.querySelectorAll('.mermaid');
+      const originalStyles = [];
+      
+      // mermaidダイアグラムの色を濃くする
+      for (let i = 0; i < mermaidElements.length; i++) {
+        const element = mermaidElements[i] as HTMLElement;
+        originalStyles.push({
+          element,
+          style: element.getAttribute('style')
+        });
+        
+        // SVG内の線と文字を濃く表示
+        const paths = element.querySelectorAll('path, line, polyline, rect, circle');
+        paths.forEach(path => {
+          if (path instanceof SVGElement) {
+            const stroke = path.getAttribute('stroke');
+            if (stroke && stroke !== 'none') {
+              path.setAttribute('stroke-width', '1.5');
+              // 薄い色を濃くする
+              if (stroke.includes('rgba') || stroke.includes('rgb')) {
+                path.setAttribute('stroke', '#000000');
+              }
+            }
+          }
+        });
+        
+        // テキスト要素の色を強調
+        const texts = element.querySelectorAll('text, tspan');
+        texts.forEach(text => {
+          if (text instanceof SVGElement) {
+            text.setAttribute('fill', '#000000');
+            text.setAttribute('font-weight', 'bold');
+          }
+        });
+      }
+      
       // 現在表示されているコンテンツをキャプチャ
       const contentElement = contentRef.current;
       const canvas = await html2canvas(contentElement, {
-        scale: 2,
+        scale: 2.5, // 解像度を上げる
         useCORS: true,
         logging: false,
-        allowTaint: true
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       });
       
-      // PDF作成
+      // キャプチャ後に元のスタイルに戻す
+      originalStyles.forEach(item => {
+        if (item.style) {
+          item.element.setAttribute('style', item.style);
+        } else {
+          item.element.removeAttribute('style');
+        }
+      });
+      
+      // PDF作成（日本語対応）
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
       
-      // ドキュメントタイトルをPDFに追加
-      pdf.setFontSize(18);
-      pdf.text(document.title, 14, 22);
-      
-      // 画像として追加
+      // 画像として追加（日本語のタイトルも含まれる）
       const imgData = canvas.toDataURL('image/png');
       const imgWidth = 210 - 20; // A4サイズの幅からマージンを引いた値
       const pageHeight = 297;  // A4サイズの高さ
       const imgHeight = canvas.height * imgWidth / canvas.width;
       let heightLeft = imgHeight;
-      let position = 30; // タイトルの下にスペースを入れる
+      let position = 10; // 上部のマージン
       
       // 最初のページに画像を追加
       pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
@@ -105,7 +148,7 @@ export default function DocumentView({
       while (heightLeft > 0) {
         position = 0;
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position - (pageHeight - 30), imgWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 10, position - (pageHeight - 10), imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
       

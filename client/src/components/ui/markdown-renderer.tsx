@@ -14,6 +14,11 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
+// 日本語テキストか判定する関数
+function containsJapanese(text: string): boolean {
+  return /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(text);
+}
+
 export function MarkdownRenderer({
   content,
   className
@@ -28,7 +33,20 @@ export function MarkdownRenderer({
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
-      fontFamily: 'Inter, sans-serif'
+      fontFamily: '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif', // 日本語フォントを優先
+      themeVariables: {
+        // 図の線や文字を濃くする
+        primaryColor: '#1a1a1a',
+        primaryTextColor: '#000000',
+        primaryBorderColor: '#000000',
+        lineColor: '#000000',
+        secondaryColor: '#006100',
+        tertiaryColor: '#fff',
+        // 日本語テキストのフォントサイズを調整
+        fontSize: '16px',
+        // 線の太さを調整
+        strokeWidth: '2px'
+      }
     });
     
     // marked.jsを使ってマークダウンをHTMLに変換
@@ -37,6 +55,14 @@ export function MarkdownRenderer({
       if (window.marked) {
         const renderer = new window.marked.Renderer();
         const originalCodeRenderer = renderer.code.bind(renderer);
+        
+        // 日本語のテキストのためのフォント処理
+        renderer.text = function(text: string) {
+          if (containsJapanese(text)) {
+            return `<span class="jp-text">${text}</span>`;
+          }
+          return text;
+        };
         
         // コードブロックのレンダリングをカスタマイズ
         renderer.code = function(code: string, language: string) {
@@ -73,6 +99,29 @@ export function MarkdownRenderer({
         }).catch(error => {
           console.error('Mermaid processing error:', error);
         });
+        
+        // Mermaidの図が描画された後、SVGのスタイルを確認・調整
+        setTimeout(() => {
+          if (containerRef.current) {
+            const mermaidSvgs = containerRef.current.querySelectorAll('.mermaid svg');
+            mermaidSvgs.forEach(svg => {
+              // SVGの表示サイズを調整
+              svg.setAttribute('width', '100%');
+              svg.setAttribute('height', 'auto');
+              
+              // テキスト要素を処理
+              const texts = svg.querySelectorAll('text');
+              texts.forEach(text => {
+                // 日本語テキストのためのスタイル調整
+                if (text.textContent && containsJapanese(text.textContent)) {
+                  text.setAttribute('font-weight', 'normal');
+                  text.setAttribute('font-family', '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif');
+                  text.setAttribute('font-size', '14px');
+                }
+              });
+            });
+          }
+        }, 200);
       } catch (error) {
         console.error('Error during mermaid run:', error);
       }
@@ -92,6 +141,7 @@ export function MarkdownRenderer({
 // Add markdown styles
 const style = document.createElement('style');
 style.textContent = `
+  .markdown-body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   .markdown-body h1 { @apply text-2xl font-bold mt-6 mb-4; }
   .markdown-body h2 { @apply text-xl font-bold mt-5 mb-3; }
   .markdown-body h3 { @apply text-lg font-bold mt-4 mb-2; }
@@ -109,7 +159,25 @@ style.textContent = `
   .markdown-body td { @apply border border-gray-300 px-3 py-1; }
   .markdown-body img { @apply max-w-full; }
   .markdown-body hr { @apply my-4 border-t border-gray-300; }
-  .markdown-body .mermaid-container { @apply my-4 overflow-auto bg-gray-50 p-4 rounded-md; }
+  .markdown-body .mermaid-container { @apply my-4 overflow-auto bg-gray-50 p-4 rounded-md border border-gray-200; }
   .markdown-body .mermaid { @apply flex justify-center; }
+  .markdown-body .jp-text { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif; }
+  
+  /* PDFエクスポート用のスタイル調整 */
+  .pdf-content .mermaid svg {
+    min-width: 600px;
+    background-color: white !important;
+  }
+  .pdf-content .mermaid svg text {
+    font-weight: bold !important;
+    fill: #000 !important;
+  }
+  .pdf-content .mermaid svg path,
+  .pdf-content .mermaid svg line,
+  .pdf-content .mermaid svg polyline,
+  .pdf-content .mermaid svg rect {
+    stroke: #000 !important;
+    stroke-width: 1.5px !important;
+  }
 `;
 document.head.appendChild(style);
