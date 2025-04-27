@@ -201,4 +201,167 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  // Project operations
+  async getProjects(): Promise<Project[]> {
+    return await db.select().from(projects).orderBy(desc(projects.updated_at));
+  }
+
+  async getProject(id: number): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const now = new Date();
+    const [project] = await db.insert(projects).values({
+      ...insertProject,
+      created_at: now,
+      updated_at: now
+    }).returning();
+    return project;
+  }
+
+  async updateProject(id: number, updateData: Partial<InsertProject>): Promise<Project | undefined> {
+    const [project] = await db.update(projects)
+      .set({
+        ...updateData,
+        updated_at: new Date()
+      })
+      .where(eq(projects.id, id))
+      .returning();
+    return project;
+  }
+
+  async deleteProject(id: number): Promise<boolean> {
+    // First get all documents for this project
+    const projectDocuments = await db.select().from(documents).where(eq(documents.project_id, id));
+    
+    // Delete all versions associated with these documents
+    for (const doc of projectDocuments) {
+      await db.delete(versions).where(eq(versions.document_id, doc.id));
+    }
+    
+    // Delete all documents
+    await db.delete(documents).where(eq(documents.project_id, id));
+    
+    // Delete the project
+    const deleted = await db.delete(projects).where(eq(projects.id, id)).returning();
+    return deleted.length > 0;
+  }
+
+  // Document operations
+  async getDocuments(projectId: number): Promise<Document[]> {
+    return await db.select()
+      .from(documents)
+      .where(eq(documents.project_id, projectId))
+      .orderBy(desc(documents.updated_at));
+  }
+
+  async getDocument(id: number): Promise<Document | undefined> {
+    const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    return document;
+  }
+
+  async createDocument(insertDocument: InsertDocument): Promise<Document> {
+    const now = new Date();
+    const [document] = await db.insert(documents).values({
+      ...insertDocument,
+      content: insertDocument.content || null,
+      created_at: now,
+      updated_at: now
+    }).returning();
+    
+    // If the document has content, create initial version
+    if (document.content) {
+      await this.createVersion({
+        document_id: document.id,
+        content: document.content
+      });
+    }
+    
+    return document;
+  }
+
+  async updateDocument(id: number, updateData: Partial<InsertDocument>): Promise<Document | undefined> {
+    // First get the current document to create a version
+    const [existingDocument] = await db.select().from(documents).where(eq(documents.id, id));
+    
+    if (!existingDocument) {
+      return undefined;
+    }
+    
+    // Create a version entry if content is being updated
+    if (updateData.content !== undefined && existingDocument.content) {
+      await this.createVersion({
+        document_id: id,
+        content: existingDocument.content
+      });
+    }
+    
+    // Update the document
+    const [updatedDocument] = await db.update(documents)
+      .set({
+        ...updateData,
+        updated_at: new Date()
+      })
+      .where(eq(documents.id, id))
+      .returning();
+    
+    return updatedDocument;
+  }
+
+  async deleteDocument(id: number): Promise<boolean> {
+    // Delete all versions
+    await db.delete(versions).where(eq(versions.document_id, id));
+    
+    // Delete the document
+    const deleted = await db.delete(documents).where(eq(documents.id, id)).returning();
+    return deleted.length > 0;
+  }
+
+  // Version operations
+  async getVersions(documentId: number): Promise<Version[]> {
+    return await db.select()
+      .from(versions)
+      .where(eq(versions.document_id, documentId))
+      .orderBy(desc(versions.created_at));
+  }
+
+  async getVersion(id: number): Promise<Version | undefined> {
+    const [version] = await db.select().from(versions).where(eq(versions.id, id));
+    return version;
+  }
+
+  async createVersion(insertVersion: InsertVersion): Promise<Version> {
+    const now = new Date();
+    const [version] = await db.insert(versions).values({
+      ...insertVersion,
+      created_at: now
+    }).returning();
+    return version;
+  }
+}
+
+// Import the needed functions from drizzle-orm
+import { eq, desc } from "drizzle-orm";
+import { db } from "./db";
+
+// Use DatabaseStorage instead of MemStorage
+export const storage = new DatabaseStorage();
