@@ -39,6 +39,8 @@ export default function DocumentEditor({
       });
       
       if (!res.ok) {
+        const errorText = await res.text();
+        console.error("API Error:", errorText);
         throw new Error('ドキュメントの更新に失敗しました');
       }
       
@@ -50,9 +52,19 @@ export default function DocumentEditor({
         description: "ドキュメントが正常に保存されました",
       });
       
-      onSave(data.document);
+      if (data && data.document) {
+        onSave(data.document);
+      } else {
+        console.error("Invalid response data:", data);
+        toast({
+          title: "エラー",
+          description: "予期しないレスポンス形式です",
+          variant: "destructive"
+        });
+      }
     },
     onError: (error) => {
+      console.error("Mutation error:", error);
       toast({
         title: "更新に失敗しました",
         description: error instanceof Error ? error.message : "不明なエラーが発生しました",
