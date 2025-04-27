@@ -281,9 +281,12 @@ export class DatabaseStorage implements IStorage {
 
   async createDocument(insertDocument: InsertDocument): Promise<Document> {
     const now = new Date();
+    // content フィールドの処理を明示的に行う
+    const contentValue = insertDocument.content === undefined ? null : insertDocument.content;
+    
     const [document] = await db.insert(documents).values({
       ...insertDocument,
-      content: insertDocument.content || null,
+      content: contentValue,
       created_at: now,
       updated_at: now
     }).returning();
@@ -308,10 +311,10 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Create a version entry if content is being updated
-    if (updateData.content !== undefined && existingDocument.content) {
+    if (updateData.content !== undefined && existingDocument.content !== null) {
       await this.createVersion({
         document_id: id,
-        content: existingDocument.content
+        content: existingDocument.content || ""
       });
     }
     
